@@ -1,0 +1,25 @@
+<?php
+
+namespace App;
+
+use Illuminate\Database\Eloquent\Model;
+
+class TempPlugOn extends Model
+{
+    //
+    public function vessel(){
+        return $this->belongsTo('App\Vessel','vessel_id','id');
+    }
+    public function voyage(){
+        return $this->belongsTo('App\Voyage','voyage_id','id');
+    }
+    public function ex_vessel(){
+        return $this->belongsTo('App\Vessel','ex_on_career_vessel','id');
+    }
+    public function ex_voyage(){
+        return $this->belongsTo('App\Voyage','ex_on_career_voyage','id');
+    }
+    public function owner(){
+        return $this->belongsTo('App\BoxOwner','box_owner','id');
+    }
+}

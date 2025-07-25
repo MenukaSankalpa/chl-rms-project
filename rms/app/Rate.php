@@ -1,0 +1,13 @@
+<?php
+
+namespace App;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Rate extends Model
+{
+    //
+    public function box_owner(){
+        return $this->belongsTo('App\BoxOwner','box_owner_id','id');
+    }
+}

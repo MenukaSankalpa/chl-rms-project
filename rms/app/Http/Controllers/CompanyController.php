@@ -1,0 +1,174 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Address;
+use App\Company;
+use Illuminate\Http\Request;
+use Yajra\DataTables\DataTables;
+use DB;
+
+class CompanyController extends Controller
+{
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->middleware('auth:admin');
+    }
+
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        $companies = Company::all();
+        return view('company.index', compact('companies'));
+
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        return view('company.create');
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        $company = new Company();
+
+        $request->validate([
+            'code' => 'required|unique:companies,code',
+            'name' => 'required',
+        ]);
+
+        $company->code = $request->code;
+        $company->name = $request->name;
+
+        DB::transaction(function () use ($request, $company) {
+
+            $company->save();
+            if (sizeof($request->addresses) > 0) {
+                foreach ($request->addresses as $addr) {
+                    $address = new Address();
+                    $address->model_class = Company::class;
+                    $address->model_id = $company->id;
+                    $address->address = $addr;
+                    $address->save();
+                }
+            }
+
+        });
+
+        return redirect('/company')->with('success', 'Created Successfully');
+
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  \App\Company $company
+     * @return \Illuminate\Http\Response
+     */
+    public function show(Company $company)
+    {
+        $company->with('addresses');
+        return view('company.show', compact('company'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\Company $company
+     * @return \Illuminate\Http\Response
+     */
+    public function edit(Company $company)
+    {
+        return view('company.edit', compact('company'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @param  \App\Company $company
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, Company $company)
+    {
+        $request->validate([
+            'code' => 'required|unique:companies,code,' . $company->id,
+            'name' => 'required',
+        ]);
+
+        $company->code = $request->code;
+        $company->name = $request->name;
+        DB::transaction(function () use ($request, $company) {
+
+            $company->update();
+            foreach ($company->addresses as $ad) {
+                $ad->delete();
+            }
+            if (sizeof($request->addresses) > 0) {
+
+                foreach ($request->addresses as $addr) {
+                    $address = new Address();
+                    $address->model_class = Company::class;
+                    $address->model_id = $company->id;
+                    $address->address = $addr;
+                    $address->save();
+                }
+            }
+
+        });
+
+        return redirect('/company')->with('success', 'Updated Successfully');
+
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Company $company
+     * @return \Illuminate\Http\Response
+     * @throws \Exception
+     */
+    public function destroy(Company $company)
+    {
+        $company->delete();
+        return redirect('/company')->with('success', 'deleted Successfully');
+    }
+
+    /**
+     * @param DataTables $datatables
+     * @return mixed
+     */
+    public function data(DataTables $datatables)
+    {
+        return $datatables->eloquent(Company::query())
+            ->editColumn('code', function ($company) {
+                return '<a href="' . url('/company/' . $company->id) . '">' . $company->code . '</a>';
+            })
+            ->addColumn('action', function ($company) {
+                return view('company.actions', compact('company'));
+            })
+            ->rawColumns(['code', 'action'])
+            ->make(true);
+    }
+
+}

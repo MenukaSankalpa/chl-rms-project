@@ -1,0 +1,22 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Dhawala
+ * Date: 7/23/2019
+ * Time: 8:57 PM
+ */
+
+function check_guard()
+{
+    //dd('guard');
+    if (auth()->guest()) {
+        return 'guest';
+    } else {
+        if (auth()->guard('admin')->check()) {
+            return 'admin';
+        }
+        if (auth()->guard('web')->check()) {
+            return 'web';
+        }
+    }
+}

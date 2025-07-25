@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Policies;
+
+use App\User;
+use App\Container;
+use Illuminate\Auth\Access\HandlesAuthorization;
+
+class ContainerPolicy
+{
+    use HandlesAuthorization;
+
+    /**
+     * Determine whether the user can view any ports.
+     *
+     * @param  \App\User  $user
+     * @return mixed
+     */
+    public function viewAny(User $user)
+    {
+        //
+        return $user->guard(['web'])->can('container.show');
+    }
+
+    /**
+     * Determine whether the user can view the container.
+     *
+     * @param  \App\User  $user
+     * @param  \App\Port  $container
+     * @return mixed
+     */
+    public function view(User $user/*, Port $container*/)
+    {
+        return $user->guard(['web'])->can('container.show');
+    }
+
+    /**
+     * Determine whether the user can create containers.
+     *
+     * @param  \App\User  $user
+     * @return mixed
+     */
+    public function create(User $user)
+    {
+        return $user->guard(['web'])->can('container.create');
+    }
+
+    /**
+     * Determine whether the user can update the container.
+     *
+     * @param  \App\User  $user
+     * @param  \App\Port  $container
+     * @return mixed
+     */
+    public function update(User $user/*, Port $container*/)
+    {
+        return $user->guard(['web'])->can('container.update');
+    }
+
+    /**
+     * Determine whether the user can delete the container.
+     *
+     * @param  \App\User  $user
+     * @param  \App\Port  $container
+     * @return mixed
+     */
+    public function delete(User $user/*, Port $container*/)
+    {
+        return $user->guard(['web'])->can('container.destroy');
+    }
+
+    /**
+     * Determine whether the user can restore the container.
+     *
+     * @param  \App\User  $user
+     * @param  \App\Port  $container
+     * @return mixed
+     */
+    public function restore(User $user, Port $container)
+    {
+        //
+    }
+
+    /**
+     * Determine whether the user can permanently delete the container.
+     *
+     * @param  \App\User  $user
+     * @param  \App\Port  $container
+     * @return mixed
+     */
+    public function forceDelete(User $user, Port $container)
+    {
+        //
+    }
+}

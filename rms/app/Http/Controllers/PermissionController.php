@@ -1,0 +1,188 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use Spatie\Permission\Models\Permission;
+use Yajra\DataTables\DataTables;
+
+class PermissionController extends Controller
+{
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->middleware('auth:admin');
+    }
+
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        $permissions = Permission::all();
+        return view('permission.index',compact('permissions'));
+
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        $getRouteCollection = Route::getRoutes(); //get and returns all returns route collection
+
+
+        $route_list = [];
+        foreach ($getRouteCollection as $route){
+
+            $slices = explode('/',$route->uri);
+            $route_list[$slices[0]][$route->uri.$route->getName()]['name'] = $route->getName();
+            $route_list[$slices[0]][$route->uri.$route->getName()]['uri'] = $route->uri;
+            $route_list[$slices[0]][$route->uri.$route->getName()]['prefix'] = $route->getPrefix();
+            $route_list[$slices[0]][$route->uri.$route->getName()]['actionMethod'] = $route->getActionMethod();
+            $route_list[$slices[0]][$route->uri.$route->getName()]['methods'] = $route->methods();
+            $permission = Permission::where('name','=',$route->getName())->first();
+            $route_list[$slices[0]][$route->uri.$route->getName()]['initialized'] = $permission;
+        }
+
+        $guard_list = config('auth.guards');
+        return view('permission.create',compact('guard_list','route_list'));
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        $permission = new Permission();
+
+        $request->validate([
+            'name'=>'required',
+        ]);
+
+        $permission->name = $request->name;
+        $permission->guard_name = $request->guard_name;
+        $permission->save();
+
+        return redirect('/permission')->with('success','Created Successfully');
+
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  \App\Permission  $permission
+     * @return \Illuminate\Http\Response
+     */
+    public function show(Permission $permission)
+    {
+        $guard_list = config('auth.guards');
+        return view('permission.show', compact('permission','guard_list'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\Permission  $permission
+     * @return \Illuminate\Http\Response
+     */
+    public function edit(Permission $permission)
+    {
+        $guard_list = config('auth.guards');
+
+        return view('permission.edit',compact('permission','guard_list'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Permission  $permission
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, Permission $permission)
+    {
+        $request->validate([
+            'name'=>'required',
+        ]);
+
+        $permission->name = $request->name;
+        $permission->guard_name = $request->guard_name;
+        $permission->update();
+
+        return redirect('/permission')->with('success','Updated Successfully');
+
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Permission $permission
+     * @return \Illuminate\Http\Response
+     * @throws \Exception
+     */
+    public function destroy(Permission $permission)
+    {
+        $permission->delete();
+        return redirect('/permission')->with('success','deleted Successfully');
+    }
+
+    /**
+     * @param DataTables $datatables
+     * @return mixed
+     */
+    public function data(DataTables $datatables)
+    {
+        return $datatables->eloquent(Permission::query())
+            ->editColumn('name',function ($permission){
+                return '<a href="'.url('/permission/'.$permission->id).'">' . $permission->name . '</a>';
+            })
+            ->addColumn('action',function ($permission){
+                return view('permission.actions',compact('permission'));
+            })
+            ->rawColumns(['name', 'action'])
+            ->make(true);
+    }
+
+    public function default_permission(Request $request){
+        $permission = Permission::where('name','=',$request->permission)->first();
+        //if permission doesn't exist creates one
+        if($permission == null) {
+
+            if($request->checked == true) {
+
+                $permission = Permission::create(['name' => $request->permission, 'guard_name' => 'web']);
+                echo $permission->toJson();
+
+            }
+
+        }
+        //if remove requested delete permission
+        elseif (!$request->checked == false){
+
+            $permission->delete();
+
+            echo 'deleted';
+
+        }else{
+
+            echo $permission->toJson();
+
+        }
+
+
+
+    }
+}

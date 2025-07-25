@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Policies;
+
+use App\User;
+use App\ReeferMonitoring;
+use Illuminate\Auth\Access\HandlesAuthorization;
+
+class ReeferMonitoringPolicy
+{
+    use HandlesAuthorization;
+    
+    /**
+     * Determine whether the user can view any reefer monitorings.
+     *
+     * @param  \App\User  $user
+     * @return mixed
+     */
+    public function viewAny(User $user)
+    {
+        //
+        return $user->guard(['web'])->can('reefer_monitoring.show');
+    }
+
+    /**
+     * Determine whether the user can view the reefer monitoring.
+     *
+     * @param  \App\User  $user
+     * @param  \App\ReeferMonitoring  $reeferMonitoring
+     * @return mixed
+     */
+    public function view(User $user/*, ReeferMonitoring $reeferMonitoring*/)
+    {
+        return $user->guard(['web'])->can('reefer_monitoring.show');
+    }
+
+    /**
+     * Determine whether the user can create reefer monitorings.
+     *
+     * @param  \App\User  $user
+     * @return mixed
+     */
+    public function create(User $user)
+    {
+        return $user->guard(['web'])->can('reefer_monitoring.create');
+    }
+
+    /**
+     * Determine whether the user can update the reefer monitoring.
+     *
+     * @param  \App\User  $user
+     * @param  \App\ReeferMonitoring  $reeferMonitoring
+     * @return mixed
+     */
+    public function update(User $user/*, ReeferMonitoring $reeferMonitoring*/)
+    {
+        return $user->guard(['web'])->can('reefer_monitoring.update');
+    }
+
+    /**
+     * Determine whether the user can delete the reefer monitoring.
+     *
+     * @param  \App\User  $user
+     * @param  \App\ReeferMonitoring  $reeferMonitoring
+     * @return mixed
+     */
+    public function delete(User $user/*, ReeferMonitoring $reeferMonitoring*/)
+    {
+        return $user->guard(['web'])->can('reefer_monitoring.destroy');
+    }
+
+    /**
+     * Determine whether the user can restore the reefer monitoring.
+     *
+     * @param  \App\User  $user
+     * @param  \App\ReeferMonitoring  $reeferMonitoring
+     * @return mixed
+     */
+    public function restore(User $user, ReeferMonitoring $reeferMonitoring)
+    {
+        //
+    }
+
+    /**
+     * Determine whether the user can permanently delete the reefer monitoring.
+     *
+     * @param  \App\User  $user
+     * @param  \App\ReeferMonitoring  $reeferMonitoring
+     * @return mixed
+     */
+    public function forceDelete(User $user, ReeferMonitoring $reeferMonitoring)
+    {
+        //
+    }
+}

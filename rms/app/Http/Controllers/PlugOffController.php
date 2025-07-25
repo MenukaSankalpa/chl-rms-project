@@ -1,0 +1,109 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\BoxOwner;
+use App\Container;
+use App\ReeferMonitoring;
+use App\Upload;
+use App\Vessel;
+use Illuminate\Http\Request;
+
+class PlugOffController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        //
+        $reefer_monitorings = ReeferMonitoring::all();
+        $vessels = Vessel::all();
+        $box_owners = BoxOwner::all()/*where('monitor_or_plug','monitor')->get()*/;
+
+        $containers = Container::all();
+
+        return view('plug_off.index', compact('reefer_monitorings', 'vessels', 'box_owners', 'containers'));
+
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        //
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        //
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param Upload $reefer_monitoring
+     * @return void
+     */
+    public function show($id)
+    {
+        //
+        $file = Upload::find($id);
+        $reefer_monitorings = ReeferMonitoring::all();
+        $vessels = Vessel::all();
+        $box_owners = BoxOwner::all();
+
+        $containers = Container::all();
+
+        $data = json_decode($file->data);
+
+        return view('plug_off.show', compact('reefer_monitorings', 'vessels', 'box_owners', 'containers', 'file', 'data'));
+
+
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function edit($id)
+    {
+        //
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, $id)
+    {
+        //
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy($id)
+    {
+        //
+    }
+}

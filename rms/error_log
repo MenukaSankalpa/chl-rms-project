@@ -1,0 +1,35 @@
+[03-Jul-2019 07:01:10 UTC] PHP Parse error:  syntax error, unexpected '?' in /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php on line 500
+[03-Jul-2019 07:02:54 UTC] PHP Parse error:  syntax error, unexpected '?' in /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php on line 500
+[03-Jul-2019 07:34:17 UTC] PHP Parse error:  syntax error, unexpected '?' in /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php on line 500
+[03-Jul-2019 11:16:04 UTC] PHP Parse error:  syntax error, unexpected '?' in /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php on line 500
+[05-Jul-2019 08:53:17 UTC] PHP Parse error:  syntax error, unexpected '?' in /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php on line 500
+[23-Jul-2019 16:52:38 UTC] PHP Warning:  Uncaught ErrorException: require(/home/gfslan5/public_html/rms/vendor/composer/../../App/Helpers/ChangeLogHelper.php): failed to open stream: No such file or directory in /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php:66
+Stack trace:
+#0 /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php(66): Composer\Util\ErrorHandler::handle(2, 'require(/home/g...', '/home/gfslan5/p...', 66, Array)
+#1 /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php(66): require()
+#2 /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php(56): composerRequire29f80b54a8f5ee742d306264e3686b17('1278f79a8deaf64...', '/home/gfslan5/p...')
+#3 /home/gfslan5/public_html/rms/vendor/autoload.php(7): ComposerAutoloaderInit29f80b54a8f5ee742d306264e3686b17::getLoader()
+#4 /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/ComposerScripts.php(43): require_once('/home/gfslan5/p...')
+#5 phar:///opt/cpanel/composer/bin/composer/src/Composer/EventDispatcher/EventDispatcher.php( in /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php on line 66
+[23-Jul-2019 16:52:38 UTC] PHP Fatal error:  composerRequire29f80b54a8f5ee742d306264e3686b17(): Failed opening required '/home/gfslan5/public_html/rms/vendor/composer/../../App/Helpers/ChangeLogHelper.php' (include_path='.:/opt/cpanel/ea-php71/root/usr/share/pear') in /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php on line 66
+[23-Jul-2019 16:59:02 UTC] PHP Warning:  Uncaught ErrorException: require(/home/gfslan5/public_html/rms/vendor/composer/../../App/Helpers/ChangeLogHelper.php): failed to open stream: No such file or directory in /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php:66
+Stack trace:
+#0 /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php(66): Composer\Util\ErrorHandler::handle(2, 'require(/home/g...', '/home/gfslan5/p...', 66, Array)
+#1 /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php(66): require()
+#2 /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php(56): composerRequire29f80b54a8f5ee742d306264e3686b17('1278f79a8deaf64...', '/home/gfslan5/p...')
+#3 /home/gfslan5/public_html/rms/vendor/autoload.php(7): ComposerAutoloaderInit29f80b54a8f5ee742d306264e3686b17::getLoader()
+#4 /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/ComposerScripts.php(43): require_once('/home/gfslan5/p...')
+#5 phar:///opt/cpanel/composer/bin/composer/src/Composer/EventDispatcher/EventDispatcher.php( in /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php on line 66
+[23-Jul-2019 16:59:02 UTC] PHP Fatal error:  composerRequire29f80b54a8f5ee742d306264e3686b17(): Failed opening required '/home/gfslan5/public_html/rms/vendor/composer/../../App/Helpers/ChangeLogHelper.php' (include_path='.:/opt/cpanel/ea-php71/root/usr/share/pear') in /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php on line 66
+[23-Jul-2019 17:03:46 UTC] PHP Warning:  Uncaught ErrorException: require(/home/gfslan5/public_html/rms/vendor/composer/../../App/Helpers/ChangeLogHelper.php): failed to open stream: No such file or directory in /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php:66
+Stack trace:
+#0 /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php(66): Composer\Util\ErrorHandler::handle(2, 'require(/home/g...', '/home/gfslan5/p...', 66, Array)
+#1 /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php(66): require()
+#2 /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php(56): composerRequire29f80b54a8f5ee742d306264e3686b17('1278f79a8deaf64...', '/home/gfslan5/p...')
+#3 /home/gfslan5/public_html/rms/vendor/autoload.php(7): ComposerAutoloaderInit29f80b54a8f5ee742d306264e3686b17::getLoader()
+#4 /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/ComposerScripts.php(43): require_once('/home/gfslan5/p...')
+#5 phar:///opt/cpanel/composer/bin/composer/src/Composer/EventDispatcher/EventDispatcher.php( in /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php on line 66
+[23-Jul-2019 17:03:46 UTC] PHP Fatal error:  composerRequire29f80b54a8f5ee742d306264e3686b17(): Failed opening required '/home/gfslan5/public_html/rms/vendor/composer/../../App/Helpers/ChangeLogHelper.php' (include_path='.:/opt/cpanel/ea-php71/root/usr/share/pear') in /home/gfslan5/public_html/rms/vendor/composer/autoload_real.php on line 66
+[14-Aug-2019 19:35:10 UTC] PHP Parse error:  syntax error, unexpected '?' in /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php on line 500
+[22-Aug-2019 08:52:07 UTC] PHP Fatal error:  Cannot declare class RemoveVesselCodeUniqueIndex, because the name is already in use in /home/gfslan5/public_html/rms/database/migrations/2019_08_22_084014_remove_vessel_code_unique_index.php on line 30
+[20-Sep-2019 15:49:07 UTC] PHP Parse error:  syntax error, unexpected '?' in /home/gfslan5/public_html/rms/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php on line 500

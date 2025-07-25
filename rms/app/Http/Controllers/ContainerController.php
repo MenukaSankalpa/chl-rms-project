@@ -1,0 +1,632 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\BoxOwner;
+use App\Container;
+use App\ReeferMonitoring;
+use App\Vessel;
+use Illuminate\Http\Request;
+use Yajra\DataTables\DataTables;
+
+class ContainerController extends Controller
+{
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->middleware('auth:admin,web');
+    }
+
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    public function index()
+    {
+        $this->authorize('view', Container::class);
+        $vessels = Vessel::all();
+        $box_owners = BoxOwner::all();
+
+        $containers = Container::all();
+        return view('container.index', compact('containers', 'vessels', 'box_owners'));
+
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    public function create()
+    {
+        $this->authorize('create', Container::class);
+        $vessels = Vessel::all();
+        $box_owners = BoxOwner::all();
+        return view('container.create', compact('vessels', 'box_owners'));
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\Response
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    public function store(Request $request)
+    {
+        $this->authorize('create', Container::class);
+        $container = new Container();
+
+        $request->validate([
+            'container_number' => 'required|max:11|unique_with:containers,container_number,plug_on_date',
+        ]);
+
+        $ld = 'D';
+        if ($request->vessel_id == '' && $request->voyage_id == '') {
+            $ld = 'L';
+        }
+
+        $error_count = 0;
+
+        $prev_container = Container::where('container_number', $request->container_number)->latest('plug_on_date')->first();
+        if ($prev_container != null) {
+            if ($prev_container->plug_off_date == '' && $prev_container->plug_off_time == '') {
+                $error_count++;
+                $message['error'][] = "Container $prev_container->container_number plugged on $prev_container->plug_on_date not plugged off !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+            }
+            if ($prev_container->plug_off_date > $request->plug_on_date) {
+                $error_count++;
+                $message['error'][] = "Container $prev_container->container_number Previous plug off ($prev_container->plug_off_date) must be on or before current (" . $container->plug_on_date . ") plug on date !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+            }
+        }
+
+        if ($error_count > 0) {
+
+        } else {
+            $container->vessel_id = $request->vessel_id;
+            $container->voyage_id = $request->voyage_id;
+            $container->container_number = $request->container_number;
+            $container->loading_discharging = $ld;
+            $container->yard_location = $request->yard_location;
+            $container->ts_local = $request->ts_local;
+            $container->temperature_unit = $request->temperature_unit;
+            $container->set_temp = $request->set_temp;
+            $container->plug_on_date = $request->plug_on_date;
+            $container->plug_on_time = $request->plug_on_time;
+            $container->plug_on_temp = $request->plug_on_temp;
+            $container->rdt_temp = $request->rdt_temp;
+            $container->remarks = $request->remarks;
+            $container->ex_on_career_vessel = $request->ex_on_career_vessel;
+            $container->ex_on_career_voyage = $request->ex_on_career_voyage;
+            $container->box_owner = $request->box_owner;
+            $container->save();
+            return redirect('/container')->with('success', 'Created Successfully');
+        }
+
+        return back()->withInput()->with('message', $message);
+
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  \App\Container $container
+     * @return \Illuminate\Http\Response
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    public function show(Container $container)
+    {
+        $this->authorize('view', Container::class);
+
+        return view('container.show', compact('container'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\Container $container
+     * @return \Illuminate\Http\Response
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    public function edit(Container $container)
+    {
+
+        $this->authorize('update', Container::class);
+        $vessels = Vessel::all();
+        $box_owners = BoxOwner::all();
+
+        return view('container.edit', compact('container', 'vessels', 'box_owners'));
+
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @param  \App\Container $container
+     * @return \Illuminate\Http\Response
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    public function update(Request $request, Container $container)
+    {
+        $this->authorize('update', Container::class);
+
+        $request->validate([
+            'container_number' => 'required|max:11|unique_with:containers,container_number,plug_on_date,' . $container->id,
+        ]);
+
+        $ld = 'D';
+        if ($request->vessel_id == '' && $request->voyage_id == '') {
+            $ld = 'L';
+        }
+
+        $error_count = 0;
+
+        //monitoring date cannot be smaller than plug on date time
+        if($container->monitoring_count>0){
+            $first_monitoring_date = ReeferMonitoring::query()
+                ->where('container_id',$container->id)
+                ->orderBy('date')->first();
+            $time_slots = [
+                'schedule_4'=>'04:00',
+                'schedule_8'=>'08:00',
+                'schedule_12'=>'12:00',
+                'schedule_16'=>'16:00',
+                'schedule_20'=>'20:00',
+                'schedule_24'=>'24:00'
+            ];
+            $first_time_slot_time = '';
+            foreach ($time_slots as $time_slot=>$time){
+                if($first_monitoring_date->{$time_slot}!=''){
+                    $first_time_slot_time = $time;
+                    break;
+                }
+            }
+            if($request->plug_on_date.' '.$request->plug_on_time > $first_monitoring_date->date.' '.$first_time_slot_time) {
+                $error_count++;
+                $message['error'][] = "Plug on date change not allowed! plug on date must be earlier date than first monitoring date 
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " " .$request->plug_on_time;
+            }
+        }
+
+
+        $prev_container = Container::where('container_number', $request->container_number)
+            ->where('id','!=',$container->id)
+            ->latest('plug_on_date')->first();
+
+        if($container->plug_off_date!=null){
+            $error_count++;
+            $message['error'][] = "Container $prev_container->container_number is plugged Off !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+        }else {
+            if ($prev_container != null) {
+                if ($prev_container->plug_off_date == '' && $prev_container->plug_off_time == '') {
+                    $error_count++;
+                    $message['error'][] = "Container $prev_container->container_number plugged on $prev_container->plug_on_date not plugged off !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+                }
+                if ($prev_container->plug_off_date > $request->plug_on_date) {
+                    $error_count++;
+                    $message['error'][] = "Container $prev_container->container_number Previous plug off ($prev_container->plug_off_date) must be on or before current (" . $container->plug_on_date . ") plug on date !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+                }
+
+            }
+            if($request->plug_off_date<$request->plug_on_date && $request->plug_off_date!=''){
+                $error_count++;
+                $message['error'][] = "Container $request->container_number  current (" . $request->plug_off_date . ") plug off date must be a later date from plug on (" . $request->plug_off_date . ") !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+
+            }
+
+            if ($error_count > 0) {
+
+            } else {
+
+                $container->vessel_id = $request->vessel_id;
+                $container->voyage_id = $request->voyage_id;
+                $container->container_number = $request->container_number;
+                $container->loading_discharging = $ld;
+                $container->yard_location = $request->yard_location;
+                $container->ts_local = $request->ts_local;
+                $container->temperature_unit = $request->temperature_unit;
+                $container->set_temp = $request->set_temp;
+                $container->plug_on_date = $request->plug_on_date;
+                $container->plug_on_time = $request->plug_on_time;
+                $container->plug_on_temp = $request->plug_on_temp;
+                $container->rdt_temp = $request->rdt_temp;
+                $container->remarks = $request->remarks;
+                $container->ex_on_career_vessel = $request->ex_on_career_vessel;
+                $container->ex_on_career_voyage = $request->ex_on_career_voyage;
+                $container->box_owner = $request->box_owner;
+                $container->update();
+
+                if (!$request->has('row_edit')) {
+                    return redirect('/container')->with('success', 'Updated Successfully');
+                }
+            }
+        }
+        return back()->withInput()->with('message', $message);
+
+
+    }
+
+    public function row_update($id, Request $request)
+    {
+        $container = Container::query()->where('id',$id)->first();
+        $error_count = 0;
+//monitoring date cannot be smaller than plug on date time
+        if($container->monitoring_count>0){
+            $first_monitoring_date = ReeferMonitoring::query()
+                ->where('container_id',$container->id)
+                ->orderBy('date')->first();
+            $time_slots = [
+                'schedule_4'=>'04:00',
+                'schedule_8'=>'08:00',
+                'schedule_12'=>'12:00',
+                'schedule_16'=>'16:00',
+                'schedule_20'=>'20:00',
+                'schedule_24'=>'24:00'
+            ];
+            $first_time_slot_time = '';
+            foreach ($time_slots as $time_slot=>$time){
+                if($first_monitoring_date->{$time_slot}!=''){
+                    $first_time_slot_time = $time;
+                    break;
+                }
+            }
+            if($request->plug_on_date.' '.$request->plug_on_time > $first_monitoring_date->date.' '.$first_time_slot_time) {
+                $error_count++;
+                $message['error'][] = "Plug on date change not allowed! plug on date must be earlier date than first monitoring date 
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " " .$request->plug_on_time;
+            }
+        }
+
+        $this->authorize('update', Container::class);
+
+        $request->validate([
+            'container_number' => 'required|max:11|unique_with:containers,container_number,plug_on_date,' . $container->id,
+        ]);
+
+
+        $prev_container = Container::where('container_number', $request->container_number)
+            ->where('id','!=',$container->id)
+            ->latest('plug_on_date')->first();
+
+        if($container->plug_off_date!=null){
+            $error_count++;
+            $message['error'][] = "Container $prev_container->container_number is plugged Off !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+        }else {
+            if ($prev_container != null) {
+                if ($prev_container->plug_off_date == '' && $prev_container->plug_off_time == '') {
+                    $error_count++;
+                    $message['error'][] = "Container $prev_container->container_number plugged on $prev_container->plug_on_date not plugged off !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+                }
+                if ($prev_container->plug_off_date > $request->plug_on_date) {
+                    $error_count++;
+                    $message['error'][] = "Container $prev_container->container_number Previous plug off ($prev_container->plug_off_date) must be on or before current (" . $container->plug_on_date . ") plug on date !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+                }
+            }
+            if($request->plug_off_date<$request->plug_on_date && $request->plug_off_date!=''){
+                $error_count++;
+                $message['error'][] = "Container $request->container_number  current (" . $request->plug_off_date . ") plug off date must be a later date from plug on (" . $request->plug_off_date . ") !
+                            Entry  " . $request->container_number . " -" . $request->plug_on_date . " ";
+
+            }
+
+            if ($error_count > 0) {
+
+            } else {
+
+
+                if ($request->loading_discharging == 'L') {
+                    $container->ex_on_career_vessel = $request->vessel_id;
+                    $container->ex_on_career_voyage = $request->voyage_id;
+                } elseif ($request->loading_discharging == 'D') {
+                    $container->vessel_id = $request->vessel_id;
+                    $container->voyage_id = $request->voyage_id;
+                }
+
+
+                $container->container_number = $request->container_number;
+                //$container->loading_discharging = $ld;
+                $container->yard_location = $request->yard_location;
+                $container->ts_local = $request->ts_local;
+                $container->temperature_unit = $request->temperature_unit;
+                $container->set_temp = $request->set_temp;
+                $container->plug_on_date = $request->plug_on_date;
+                $container->plug_off_date = $request->plug_off_date;
+                $container->plug_on_time = $request->plug_on_time;
+                $container->plug_on_temp = $request->plug_on_temp;
+                $container->rdt_temp = $request->rdt_temp;
+                $container->remarks = $request->remarks;
+                //dd($container);
+                $container->update();
+                return Container::query()->where('id',$container->id)
+                    ->with(['vessel','voyage','loading_vessel','loading_voyage'])
+                    ->first();
+            }
+        }
+        echo json_encode($message);
+
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Container $container
+     * @return \Illuminate\Http\Response
+     * @throws \Exception
+     */
+    public function destroy(Container $container)
+    {
+        $this->authorize('delete', Container::class);
+
+        $container->delete();
+
+        return redirect('/container')->with('success', 'deleted Successfully');
+    }
+
+    /**
+     * @param DataTables $datatables
+     * @return mixed
+     * @throws \Exception
+     */
+    public function data(DataTables $datatables)
+    {
+        parse_str($datatables->getRequest()->extra_search, $ext);
+
+        $request = $ext;
+        $containers = Container::query()->with('owner');
+        //dd($datatables);
+        $search = new \stdClass();
+        foreach ($request['ext_search'] as $k => $search_option) {
+            $search->{$k} = $search_option;
+        }
+        $search->plug_on_date = $request['search_plug_on_date'];
+
+//search query
+        if ($search->vessel_id != '' && $search->voyage_id != '') {
+            if ($search->loading_discharging == 'B') {
+                $containers->where(function ($query) use ($search) {
+                    $query->where(function ($q) use ($search) {
+
+                        $q->where('vessel_id', $search->vessel_id);
+                        $q->where('voyage_id', $search->voyage_id);
+                    })
+                        ->orWhere(function ($q) use ($search) {
+                            $q->where('ex_on_career_vessel', $search->vessel_id);
+                            $q->where('ex_on_career_voyage', $search->voyage_id);
+
+                        });
+                });
+            } elseif ($search->loading_discharging == 'L') {
+                $containers->where(function ($q) use ($search) {
+                    $q->where('ex_on_career_vessel', $search->vessel_id);
+                    $q->where('ex_on_career_voyage', $search->voyage_id);
+                });
+            } elseif ($search->loading_discharging == 'D') {
+                $containers->where(function ($q) use ($search) {
+                    $q->where('vessel_id', $search->vessel_id);
+                    $q->where('voyage_id', $search->voyage_id);
+                });
+            }
+            if ($search->container_number != '') {
+                $containers->where('container_number', $search->container_number);
+            }
+            if ($search->plug_on_date != '') {
+                $containers->where('plug_on_date', $search->plug_on_date);
+            }
+            if ($search->yard_location != '') {
+                $containers->where('yard_location', $search->yard_location);
+            }
+            if (isset($search->plug_on) && !isset($search->plug_off)) {
+                //echo "plug on with vessel voyage";
+                $containers->where(function ($q) use ($search) {
+                    $q->whereNotNull('plug_on_date');
+                    $q->whereNull('plug_off_date');
+                    //$q->whereNotNull('plug_on_time');
+                });
+            } elseif (!isset($search->plug_on) && isset($search->plug_off)) {
+                //echo "plug off with vessel voyage";
+                $containers->where(function ($q) use ($search) {
+                    $q->whereNotNull('plug_off_date');
+                    //$q->whereNull('plug_on_date');
+                    //$q->whereNotNull('plug_off_time');
+                });
+            }
+
+        } else {
+
+            if ($search->loading_discharging == 'B') {
+
+                if (
+                    $search->container_number == ''
+                    && $search->plug_on_date == ''
+                    && $search->yard_location == ''
+                    && !isset($search->plug_on)
+                    && !isset($search->plug_off)
+                ) {
+                    $containers->whereNull('id');//to stop from returning all data when non is selected
+                }
+            } else if ($search->loading_discharging == 'L') {
+                $containers->whereNotNull('ex_on_career_vessel');
+                $containers->whereNotNull('ex_on_career_voyage');
+            } else if ($search->loading_discharging == 'D') {
+                $containers->whereNotNull('vessel_id');
+                $containers->whereNotNull('voyage_id');
+            }
+            if ($search->container_number != '') {
+                $containers->where('container_number', $search->container_number);
+            }
+            if ($search->plug_on_date != '') {
+                $containers->where('plug_on_date', $search->plug_on_date);
+            }
+            if ($search->yard_location != '') {
+                $containers->where('yard_location', $search->yard_location);
+            }
+            if (isset($search->plug_on) && !isset($search->plug_off)) {
+                //echo "plug on with vessel voyage";
+                $containers->where(function ($q) use ($search) {
+                    $q->whereNotNull('plug_on_date');
+                    $q->whereNull('plug_off_date');
+                    //$q->whereNotNull('plug_on_time');
+                });
+            } elseif (!isset($search->plug_on) && isset($search->plug_off)) {
+                //echo "plug off with vessel voyage";
+                $containers->where(function ($q) use ($search) {
+                    $q->whereNotNull('plug_off_date');
+                    //$q->whereNull('plug_on_date');
+                    //$q->whereNotNull('plug_off_time');
+                });
+            }
+
+        }
+//end search query
+        return $datatables->eloquent($containers)
+            ->editColumn('container_number', function ($container) {
+                return view('container.table_elements.container_number', compact('container'));
+                //return '<a href="'.url('/container/'.$container->id).'">' . $container->container_number . '</a>';
+            })
+            ->editColumn('yard_location', function ($container) {
+                return view('container.table_elements.yard_location', compact('container'));
+            })
+//            ->editColumn('loading_discharging', function ($container) {
+//                return view('container.table_elements.loading_discharging', compact('container'));
+//            })
+            ->editColumn('ts_local', function ($container) {
+                return view('container.table_elements.local_ts', compact('container'));
+            })
+            ->editColumn('temperature_unit', function ($container) {
+                return view('container.table_elements.temperature_unit', compact('container'));
+            })
+            ->editColumn('set_temp', function ($container) {
+                return view('container.table_elements.set_temp', compact('container'));
+            })
+            ->editColumn('plug_on_date', function ($container) {
+                return view('container.table_elements.plug_on_date', compact('container'));
+            })
+            ->editColumn('plug_on_time', function ($container) {
+                return view('container.table_elements.plug_on_time', compact('container'));
+            })
+            ->editColumn('plug_on_temp', function ($container) {
+                return view('container.table_elements.plug_on_temp', compact('container'));
+            })
+            ->editColumn('plug_off_date', function ($container) {
+                return view('container.table_elements.plug_off_date', compact('container'));
+            })
+            ->editColumn('rdt_temp', function ($container) {
+                return view('container.table_elements.rdt_temp', compact('container'));
+            })
+            ->editColumn('remarks', function ($container) {
+                return view('container.table_elements.remarks', compact('container'));
+            })
+            ->editColumn('box_owner', function ($container) {
+                if ($container->owner()->first()) {
+                    return $container->owner()->first()->name;
+                }
+            })
+            ->addColumn('quick_save', function ($container) {
+                return view('container.quick_save', compact('container'));
+            })
+            ->addColumn('action', function ($container) {
+                return view('container.actions', compact('container'));
+            })
+            ->addColumn('with_vessel_voyage', function ($container) {
+                return view('container.table_elements.with_vessel_voyage');
+            })
+            ->addColumn('empty', function ($container) {
+                return "";
+            })
+            ->setRowId('id')
+            ->rawColumns([
+                'container_number',
+                'yard_location',
+//                'loading_discharging',
+                'ts_local',
+                'temperature_unit',
+                'set_temp',
+                'plug_on_date',
+                'plug_on_time',
+                'plug_on_temp',
+                'plug_off_date',
+                'rdt_temp',
+                'remarks',
+                'quick_save',
+                'action',
+                'with_vessel_voyage'
+            ])
+            ->make(true);
+    }
+
+    public function containers_search(Request $request)
+    {
+        //todo container search
+        $containers = Container::query()->with(['reefer_monitoring' => function ($q) {
+            $q->orderBy('date', 'desc');
+        }]);
+
+        //vessel
+        if ($request->vessel_id == '') {
+/*            $containers->whereNull('vessel_id');
+            $containers->orWhereNull('ex_on_career_vessel');*/
+        } else {
+            $containers->where('vessel_id', $request->vessel_id);
+            $containers->orWhere('ex_on_career_vessel', $request->vessel_id);
+        }
+
+        //voyage
+        if ($request->voyage_id == '') {
+/*            $containers->whereNull('voyage_id');
+            $containers->orWhereNull('ex_on_career_voyage');*/
+
+        } else {
+            $containers->where('voyage_id', $request->voyage_id);
+            $containers->orWhere('ex_on_career_voyage', $request->voyage_id);
+        }
+
+        //box_owner
+        if ($request->box_owner == '') {
+            $containers->whereNull('box_owner');
+        } elseif ($request->box_owner == 'ALL_OWNERS') {
+
+        } else {
+            $containers->where('box_owner', $request->box_owner);
+        }
+
+        //container_number
+        if ($request->container_number == '') {
+        } else {
+            $containers->where('container_number', $request->container_number);
+        }
+
+        //yard_location
+        if ($request->yard_location == '') {
+        } else {
+            $containers->where('yard_location', $request->yard_location);
+        }
+
+        //loading_discharging
+        if ($request->loading_discharging == 'B') {
+
+        } else {
+            $containers->where('loading_discharging', $request->loading_discharging);
+        }
+
+
+        return $containers->get();
+    }
+
+}

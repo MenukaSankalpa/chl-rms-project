@@ -1,0 +1,88 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\TempContainer;
+use Illuminate\Http\Request;
+
+class TempContainerController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        //
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        //
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        //
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  \App\TempContainer  $tempContainer
+     * @return \Illuminate\Http\Response
+     */
+    public function show($id)
+    {
+        $temp_container_data = TempContainer::where('file_id','=',$id)->get();
+        return $temp_container_data->all();
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\TempContainer  $tempContainer
+     * @return \Illuminate\Http\Response
+     */
+    public function edit($id)
+    {
+        $temp_container_data = TempContainer::where('file_id','=',$id)->get()->toJson();
+
+        return view('temp_container.edit',compact('temp_container_data','id'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\TempContainer  $tempContainer
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, TempContainer $tempContainer)
+    {
+        //
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\TempContainer  $tempContainer
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(TempContainer $tempContainer)
+    {
+        //
+    }
+}

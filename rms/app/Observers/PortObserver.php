@@ -1,0 +1,67 @@
+<?php
+
+namespace App\Observers;
+
+use App\Port;
+
+class PortObserver
+{
+    /**
+     * Handle the port "created" event.
+     *
+     * @param  \App\Port  $port
+     * @return void
+     */
+    public function created(Port $port)
+    {
+        //
+        change_log(Port::class,$port,'created');
+    }
+
+    /**
+     * Handle the port "updated" event.
+     *
+     * @param  \App\Port  $port
+     * @return void
+     */
+    public function updated(Port $port)
+    {
+        //
+        change_log(Port::class,$port,'updated');
+
+    }
+
+    /**
+     * Handle the port "deleted" event.
+     *
+     * @param  \App\Port  $port
+     * @return void
+     */
+    public function deleted(Port $port)
+    {
+        //
+        change_log(Port::class,$port,'deleted');
+    }
+
+    /**
+     * Handle the port "restored" event.
+     *
+     * @param  \App\Port  $port
+     * @return void
+     */
+    public function restored(Port $port)
+    {
+        //
+    }
+
+    /**
+     * Handle the port "force deleted" event.
+     *
+     * @param  \App\Port  $port
+     * @return void
+     */
+    public function forceDeleted(Port $port)
+    {
+        //
+    }
+}

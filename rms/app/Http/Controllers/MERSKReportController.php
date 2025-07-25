@@ -1,0 +1,154 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Container;
+use App\Rate;
+use App\ReeferMonitoring;
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
+use Illuminate\Http\Request;
+
+use Illuminate\Support\Facades\Gate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use PhpOffice\PhpSpreadsheet\Writer as Writer;
+use DB;
+
+class MERSKReportController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('auth:web,admin');
+    }
+
+    public function index()
+    {
+        if (Gate::authorize('mersk_report.index')) {
+            return view('mersk_report.index');
+        }
+    }
+
+    public function download(Request $request)
+    {
+        if (Gate::authorize('mersk_report.index')) {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            //column auto sizing
+            foreach (range('A', 'H') as $columnID) {
+                $sheet->getColumnDimension($columnID)
+                    ->setAutoSize(true);
+            }
+            $ld = DB::raw("if((containers.vessel_id is not null AND containers.voyage_id is not null),'discharging','loading' ) as ld");
+            $vv = DB::raw("if((containers.vessel_id is not null AND containers.voyage_id is not null),concat(vessel.name,'-',voyage.code),concat(loading_vessel.name,'-',loading_voyage.code)) as vv");
+            $other = DB::table('containers')
+                ->leftJoin('vessels as vessel', 'vessel.id', '=', 'containers.vessel_id')
+                ->leftJoin('voyages as voyage', 'voyage.id', '=', 'containers.voyage_id')
+                ->leftJoin('vessels as loading_vessel', 'loading_vessel.id', '=', 'containers.ex_on_career_vessel')
+                ->leftJoin('voyages as loading_voyage', 'loading_voyage.id', '=', 'containers.ex_on_career_voyage')
+                ->select([
+                    '*',
+                    $vv,
+                    $ld,
+                    DB::raw('containers.id container_id'),
+                    DB::raw('vessel.name vessel_name'),
+                    DB::raw('loading_vessel.name loading_vessel_name'),
+                    DB::raw('voyage.code voyage_code'),
+                    DB::raw('loading_voyage.code loading_voyage_code'),
+                ])
+                ->where(function ($q) {
+                    $q->where(function ($q) {
+                        $q->whereNotNull('containers.vessel_id');
+                        $q->WhereNotNull('containers.voyage_id');
+                    })
+                        ->orWhere(function ($q) {
+                            $q->whereNotNull('containers.ex_on_career_vessel');
+                            $q->whereNotNull('containers.ex_on_career_voyage');
+                        });
+                })
+                ->where('plugging_category', 'plug_on_and_off_only')
+                ->whereNotNull('plug_off_date')
+                ->whereBetween('containers.plug_off_date', [date($request->from), date($request->to)]);
+            //dd($other->toSql());
+            //dd($other->get()->groupBy(['vv', 'ld'])->toArray());
+            $sheet->getStyle("A1")->getFont()->setBold(true);
+            $sheet->setCellValue('A1', 'From:');
+            $sheet->setCellValue('B1', $request->from);
+            $sheet->getStyle("A2")->getFont()->setBold(true);
+            $sheet->setCellValue('A2', 'To:');
+            $sheet->setCellValue('B2', $request->to);
+
+            //headings
+            $sheet->getStyle("A4:I4")->getFont()->setBold(true);
+            $sheet->setCellValue('A4', "Container No");
+            $sheet->setCellValue('B4', "On Date");
+            $sheet->setCellValue('C4', "On Time");
+            $sheet->setCellValue('D4', "Off Date");
+            $sheet->setCellValue('E4', "Off Time");
+            $sheet->setCellValue('F4', "No of Days");
+            $sheet->setCellValue('G4', "Rate USD");
+            $sheet->setCellValue('H4', "Value USD");
+//        $sheet->setCellValue('I4', "test");
+
+            $counter = 5;
+            foreach ($other->get()->groupBy(['vv', 'ld'])->toArray() as $vessel => $lds) {
+
+                foreach ($lds as $loading_discharging => $ld) {
+                    $counter++;
+                    $sheet->getStyle("A$counter:B$counter")->getFont()->setBold(true);
+                    $sheet->setCellValue('A' . $counter, "Vessel:");
+                    $sheet->setCellValue('B' . $counter, $vessel);
+
+                    $counter++;
+                    $sheet->getStyle("A$counter:B$counter")->getFont()->setBold(true);
+                    $sheet->setCellValue('A' . $counter, "Loading Discharging:");
+                    $sheet->setCellValue('B' . $counter, $loading_discharging);
+                    $counter++;
+
+                    foreach ($ld as $row) {
+                        $monitoring_count = 0;
+                        $validation = new MonitoringValidationController($row->container_id, $row);
+                        $monitoring_days_count = 0;
+                        $period = CarbonPeriod::create($validation->container->plug_on_date, $validation->container->plug_off_date);
+
+// Iterate over the period
+                        foreach ($period as $date) {
+                            //echo $date->format('Y-m-d');
+                            $monitoring_days_count++;
+                        }
+
+
+                        $rate = Rate::where('date', '<=', $row->plug_on_date)
+                            ->where('box_owner_id', 4)//MERSK
+                            ->where('currency', 2)//USD
+                            ->latest('date')->first();
+
+                        $sheet->setCellValue('A' . $counter, $row->container_number);
+                        $sheet->setCellValue('B' . $counter, $row->plug_on_date);
+                        $sheet->setCellValue('C' . $counter, $row->plug_on_time);
+                        $sheet->setCellValue('D' . $counter, $row->plug_off_date);
+                        $sheet->setCellValue('E' . $counter, $row->plug_off_time);
+                        $sheet->setCellValue('F' . $counter, $monitoring_days_count);
+                        $sheet->setCellValue('G' . $counter, $rate->rate ?? '');
+                        $sheet->setCellValue('H' . $counter, $rate->rate ?? '');
+                        //$sheet->setCellValue('H' . $counter, $rate!=null?$monitoring_days_count*$rate->rate:'Rate Not found');
+                        $counter++;
+                    }
+                }
+            }
+
+
+            $writer = new Writer\Xls($spreadsheet);
+
+            $response = new StreamedResponse(
+                function () use ($writer) {
+                    $writer->save('php://output');
+                }
+            );
+            $response->headers->set('Content-Type', 'application/vnd.ms-excel');
+            $response->headers->set('Content-Disposition', 'attachment;filename="ExportScan.xls"');
+            $response->headers->set('Cache-Control', 'max-age=0');
+            return $response;
+        }
+    }
+}

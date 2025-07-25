@@ -1,0 +1,2 @@
+[01-Jul-2019 12:38:15 UTC] PHP Fatal error:  Class 'Illuminate\Routing\Controller' not found in /home/gfslan5/public_html/msts_rms/app/Http/Controllers/Controller.php on line 11
+[01-Jul-2019 12:38:15 UTC] PHP Fatal error:  Class 'Illuminate\Routing\Controller' not found in /home/gfslan5/public_html/msts_rms/app/Http/Controllers/Controller.php on line 11

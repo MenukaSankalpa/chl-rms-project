@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Policies;
+
+use App\User;
+use App\Rate;
+use Illuminate\Auth\Access\HandlesAuthorization;
+
+class RatePolicy
+{
+    use HandlesAuthorization;
+
+    /**
+     * Determine whether the user can view any ports.
+     *
+     * @param  \App\User  $user
+     * @return mixed
+     */
+    public function viewAny(User $user)
+    {
+        //
+        return $user->guard(['web'])->can('rate.show');
+    }
+
+    /**
+     * Determine whether the user can view the rate.
+     *
+     * @param  \App\User  $user
+     * @param  \App\rate  $rate
+     * @return mixed
+     */
+    public function view(User $user/*, rate $rate*/)
+    {
+        return $user->guard(['web'])->can('rate.show');
+    }
+
+    /**
+     * Determine whether the user can create rates.
+     *
+     * @param  \App\User  $user
+     * @return mixed
+     */
+    public function create(User $user)
+    {
+        return $user->guard(['web'])->can('rate.create');
+    }
+
+    /**
+     * Determine whether the user can update the rate.
+     *
+     * @param  \App\User  $user
+     * @param  \App\rate  $rate
+     * @return mixed
+     */
+    public function update(User $user/*, rate $rate*/)
+    {
+        return $user->guard(['web'])->can('rate.update');
+    }
+
+    /**
+     * Determine whether the user can delete the rate.
+     *
+     * @param  \App\User  $user
+     * @param  \App\rate  $rate
+     * @return mixed
+     */
+    public function delete(User $user/*, rate $rate*/)
+    {
+        return $user->guard(['web'])->can('rate.destroy');
+    }
+
+    /**
+     * Determine whether the user can restore the rate.
+     *
+     * @param  \App\User  $user
+     * @param  \App\rate  $rate
+     * @return mixed
+     */
+    public function restore(User $user, Rate $rate)
+    {
+        //
+    }
+
+    /**
+     * Determine whether the user can permanently delete the rate.
+     *
+     * @param  \App\User  $user
+     * @param  \App\rate  $rate
+     * @return mixed
+     */
+    public function forceDelete(User $user, Rate $rate)
+    {
+        //
+    }
+}
