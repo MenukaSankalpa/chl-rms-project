@@ -1,0 +1,12 @@
+<?php
+
+function change_log($model_class,$model,$event){
+    $change_log = new \App\ChangeLog();
+    $change_log->user_id = auth()->user()->id;
+    $change_log->guard = check_guard();
+    $change_log->event = $event;
+    $change_log->model = $model_class;
+    $change_log->model_id = $model->id;
+    $change_log->data = $model->toJson();
+    $change_log->save();
+}

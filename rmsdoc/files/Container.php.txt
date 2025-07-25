@@ -1,0 +1,49 @@
+<?php
+
+namespace App;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Container extends Model
+{
+    protected $appends = ['plug_on_at','plug_off_at','monitoring_count'];
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function owner(){
+        return $this->belongsTo('App\BoxOwner','box_owner','id');
+    }
+
+    public function vessel(){
+        return $this->belongsTo('App\Vessel','vessel_id','id');
+    }
+
+    public function voyage(){
+        return $this->belongsTo('App\Voyage','voyage_id','id');
+    }
+
+    public function loading_vessel(){
+        return $this->belongsTo('App\Vessel','ex_on_career_vessel','id');
+    }
+
+    public function loading_voyage(){
+        return $this->belongsTo('App\Voyage','ex_on_career_voyage','id');
+    }
+
+    public function reefer_monitoring(){
+        return $this->hasMany('App\ReeferMonitoring','container_id','id');
+    }
+
+    public function getPlugOffAtAttribute(){
+        return $this->plug_off_date.' '.$this->plug_off_time;
+    }
+
+    public function getPlugOnAtAttribute(){
+        return $this->plug_on_date.' '.$this->plug_on_time;
+    }
+
+    public function getMonitoringCountAttribute(){
+        return $this->reefer_monitoring()->get()->count();
+    }
+}
+

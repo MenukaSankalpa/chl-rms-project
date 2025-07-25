@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Http\Controllers\Readers;
+
+
+use App\TempContainer;
+use App\Upload;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+
+class ReeferMonitoringExcellController extends Controller
+{
+    //
+    public function read(Upload $file){
+        $file_name = $file->path . '/' . $file->saved_index;
+        $spreadsheet = IOFactory::load($file_name);
+        $sheetData = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
+        //var_dump($sheetData);
+        //$data = json_decode($file->data);
+
+
+        foreach ($sheetData as $k => $row) {
+            if($row['A']!=''){
+                //var_dump($row);
+                $prev_temp_container = TempContainer::where('number',$row['A'])
+                    ->where('file_id',$file->id)->get();
+                if($prev_temp_container->count()>0){
+//var_dump('sdfsdf');
+                }else {
+                    $temp_container = new TempContainer();
+                    $temp_container->number = $row['A'];
+                    $temp_container->file_id = $file->id;
+                    $temp_container->save();
+                }
+            }
+        }
+//die;
+        return redirect('/reefer_monitoring/'.$file->id)->with('success',"Excel Uploaded.");
+    }
+
+}
+

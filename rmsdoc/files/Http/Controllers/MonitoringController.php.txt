@@ -1,0 +1,26 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Container;
+use App\ReeferMonitoring;
+use Illuminate\Http\Request;
+
+class MonitoringController extends Controller
+{
+    //
+    public function __construct()
+    {
+        $this->middleware('auth:web,admin');
+    }
+
+    public function index(Container $container)
+    {
+        $monitorings = ReeferMonitoring::query()
+            ->where('container_id',$container->id)
+            ->get();
+        return view('monitoring.index', compact( 'monitorings','container'));
+    }
+
+}
+

@@ -1,0 +1,391 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Container;
+use App\ReeferMonitoring;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use DB;
+
+class CommonQueryController extends Controller
+{
+    public static function getLatestContainerList($file_id)
+    {
+        $latestContainers = DB::table('containers')
+            ->select(
+                'container_number',
+                DB::raw('MAX(plug_on_date) as last_container_record')
+            )
+            //->whereNull('plug_off_date')
+            ->groupBy('containers.container_number');
+
+        $temp_containers = DB::table('temp_containers')
+            ->leftJoinSub($latestContainers, 'latest_containers', function ($join) {
+                $join->on('temp_containers.number', '=', 'latest_containers.container_number');
+            })->where('temp_containers.file_id', $file_id)/*->get()*/
+        ;
+
+        $containers = DB::table('containers')->select(
+            'containers.id',
+            'containers.container_number',
+            'temp_containers.number',
+            'containers.ts_local',
+            'containers.yard_location',
+            'containers.remarks',
+            'containers.temperature_unit',
+            'containers.set_temp',
+            'containers.plug_on_temp',
+            'containers.plug_on_date',
+            'containers.plug_on_time',
+            'containers.plug_off_date',
+            'containers.ex_on_career_vessel',
+            'containers.ex_on_career_voyage',
+            'last_container_record'
+        )
+            ->rightJoinSub($temp_containers, 'temp_containers', function ($join) {
+                $join->on('temp_containers.number', '=', 'containers.container_number')
+                    ->on('temp_containers.last_container_record', '=', 'containers.plug_on_date');
+            });
+        return $containers;
+    }
+
+    //todo - add bulk edit search query in here.
+    public static function bulkContainerSearch($request)
+    {
+
+        $containers = Container::query()->with('box_owner');
+        //dd($datatables);
+        $search = new \stdClass();
+        foreach ($request['ext_search'] as $k => $search_option) {
+            $search->{$k} = $search_option;
+        }
+        $search->plug_on_date = $request['search_plug_on_date'];
+
+//search query
+        if ($search->vessel_id != '' && $search->voyage_id != '') {
+            if ($search->loading_discharging == 'B') {
+                $containers->where(function ($query) use ($search) {
+                    $query->where(function ($q) use ($search) {
+
+                        $q->where('vessel_id', $search->vessel_id);
+                        $q->where('voyage_id', $search->voyage_id);
+                    })
+                        ->orWhere(function ($q) use ($search) {
+                            $q->where('ex_on_career_vessel', $search->vessel_id);
+                            $q->where('ex_on_career_voyage', $search->voyage_id);
+
+                        });
+                });
+            } elseif ($search->loading_discharging == 'L') {
+                $containers->where(function ($q) use ($search) {
+                    $q->where('ex_on_career_vessel', $search->vessel_id);
+                    $q->where('ex_on_career_voyage', $search->voyage_id);
+                });
+            } elseif ($search->loading_discharging == 'D') {
+                $containers->where(function ($q) use ($search) {
+                    $q->where('vessel_id', $search->vessel_id);
+                    $q->where('voyage_id', $search->voyage_id);
+                });
+            }
+            if ($search->container_number != '') {
+                $containers->where('container_number', $search->container_number);
+            }
+            if ($search->plug_on_date != '') {
+                $containers->where('plug_on_date', $search->plug_on_date);
+            }
+            if ($search->yard_location != '') {
+                $containers->where('yard_location', $search->yard_location);
+            }
+            if (isset($search->plug_on) && !isset($search->plug_off)) {
+                //echo "plug on with vessel voyage";
+                $containers->where(function ($q) use ($search) {
+                    $q->whereNotNull('plug_on_date');
+                    $q->whereNull('plug_off_date');
+                    //$q->whereNotNull('plug_on_time');
+                });
+            } elseif (!isset($search->plug_on) && isset($search->plug_off)) {
+                //echo "plug off with vessel voyage";
+                $containers->where(function ($q) use ($search) {
+                    $q->whereNotNull('plug_off_date');
+                    //$q->whereNull('plug_on_date');
+                    //$q->whereNotNull('plug_off_time');
+                });
+            }
+
+        } else {
+
+            if ($search->loading_discharging == 'B') {
+
+                if (
+                    $search->container_number == ''
+                    && $search->plug_on_date == ''
+                    && $search->yard_location == ''
+                    && !isset($search->plug_on)
+                    && !isset($search->plug_off)
+                ) {
+                    $containers->whereNull('id');//to stop from returning all data when non is selected
+                }
+            } else if ($search->loading_discharging == 'L') {
+                $containers->whereNotNull('ex_on_career_vessel');
+                $containers->whereNotNull('ex_on_career_voyage');
+            } else if ($search->loading_discharging == 'D') {
+                $containers->whereNotNull('vessel_id');
+                $containers->whereNotNull('voyage_id');
+            }
+            if ($search->container_number != '') {
+                $containers->where('container_number', $search->container_number);
+            }
+            if ($search->plug_on_date != '') {
+                $containers->where('plug_on_date', $search->plug_on_date);
+            }
+            if ($search->yard_location != '') {
+                $containers->where('yard_location', $search->yard_location);
+            }
+            if (isset($search->plug_on) && !isset($search->plug_off)) {
+                //echo "plug on with vessel voyage";
+                $containers->where(function ($q) use ($search) {
+                    $q->whereNotNull('plug_on_date');
+                    $q->whereNull('plug_off_date');
+                    //$q->whereNotNull('plug_on_time');
+                });
+            } elseif (!isset($search->plug_on) && isset($search->plug_off)) {
+                //echo "plug off with vessel voyage";
+                $containers->where(function ($q) use ($search) {
+                    $q->whereNotNull('plug_off_date');
+                    //$q->whereNull('plug_on_date');
+                    //$q->whereNotNull('plug_off_time');
+                });
+            }
+
+        }
+//end search query
+        return $containers;
+    }
+
+    /**
+     * @param $container
+     * @param $search
+     * @return \stdClass attributes{code,date_tag,date,message}
+     *
+     * KEY -
+     * 0 - plugged off
+     * 1 - No monitoring yet
+     * 2 - Has Monitoring date before search date and has empty Schedules
+     * 3 - Has Monitoring date before search date and doesnt have any empty
+     * 4 - Has Monitoring date before search date and doesnt have any empty
+     */
+    public static function stateOfMonitoring($container, $search)
+    {
+
+        //todo -2019-09-4- new requirement allow add data on search date despite empty field on previous days.
+        $prot = new \stdClass();//prot short for prototype
+        $monitoring = ReeferMonitoring::where('container_id', $container->id)
+            ->where('date', '<=', $search->date)
+            ->latest('date')->first();
+//        $anti_monitoring = ReeferMonitoring::where('container_id', $container->id)
+//            ->where('date', '>', $search->date)
+//            ->latest()->first();
+        $d = '';
+        if($monitoring!=null){
+            $d = $monitoring->date;
+        }/*elseif($anti_monitoring!=null){
+            $d = $anti_monitoring->date;
+        }*/
+
+        $prot->prev_monitoring = ReeferMonitoring::where('container_id', $container->id)
+            ->where('date', '=', Carbon::parse($d)->sub(1,'day')->toDateString())
+            ->latest()->first();
+        $prot->next_monitoring = ReeferMonitoring::where('container_id', $container->id)
+            ->where('date', '=', Carbon::parse($d)->add(1,'day')->toDateString())
+            ->latest()->first();
+        $prot->prev_date = $prot->prev_monitoring!=null?$prot->prev_monitoring->date:$container->plug_on_date;
+        $prot->prev_date_at = $prot->prev_monitoring!=null?$prot->prev_monitoring->date.' 23:59:59':$container->plug_on_at;
+        $prot->next_date = $prot->next_monitoring!=null?$prot->next_monitoring->date:'';
+        $prot->next_date_at = $prot->next_monitoring!=null?$prot->next_monitoring->date.' 00:00:00':'';
+        //return $container->monitoring_count.$monitoring;
+        //test code block
+        {
+            $prot->code = 10;
+            $prot->date_tag = "
+<span class='small' style='color: darkslategray; font-weight: bold'>
+<div>search:$search->date</div>
+<div>monitoring:".($monitoring!=null?$monitoring->date:'')."</div>
+<div>Prev monitoring:$prot->prev_date</div>
+<div>next monitoring:$prot->next_date</div>
+<div>plug on:$container->plug_on_date</div>
+<div>plug off:$container->plug_off_date</div>
+</span>";
+            $prot->date = $container->plug_off_date;
+            $prot->message = "TEST";
+            $prot->message_tag = "<span class='small' style='color: darkslategray; font-weight: bold'>TEST $prot->code</span>";
+            $prot->button = '
+            <div class="d-inline-block">
+            <button data-status = "'.$prot->code.'" type="submit" id="quick_save" data-id="' . $container->id . '"
+                    data-monitoring-id=""
+                    class="btn btn-success btn-sm btn-circle"><i
+                    class="fa fa-save " title="Quick Save"></i>
+            </button>
+            <input name="_method" type="hidden" value="PUT">
+            <input type="hidden" name="row_monitoring_date" value="'.$container->plug_off_date.'">
+            </div>
+            ';
+            $prot->monitoring = $monitoring;
+
+        }
+
+
+        /** - Plug off **/
+        if($container->plugging_category=='monitoring' && $container->plug_off_date !=null){
+            $prot->code = 0;
+            $prot->date_tag = "<span class='small' style='color: darkslategray; font-weight: bold'>$container->plug_off_date</span>";
+            $prot->date = $container->plug_off_date;
+            $prot->message = "Plug Off";
+            $prot->message_tag = "<span class='small' style='color: darkslategray; font-weight: bold'>Plug Off $prot->code</span>";
+            $prot->button = '
+            <div class="d-inline-block">
+            <button data-status = "'.$prot->code.'" type="submit" id="quick_save" data-id="' . $container->id . '"
+                    data-monitoring-id=""
+                    class="btn btn-success btn-sm btn-circle"><i
+                    class="fa fa-save " title="Quick Save"></i>
+            </button>
+            <input name="_method" type="hidden" value="PUT">
+            <input type="hidden" name="row_monitoring_date" value="'.$container->plug_off_date.'">
+            </div>
+            ';
+            $prot->monitoring = $monitoring;
+        }
+
+        /** NO monitoring plug on at search date*/
+        elseif($container->plugging_category=='monitoring' && $monitoring==null && $container->plug_on_date == $prot->prev_date && $container->plug_on_date==$search->date){
+            $prot->code = 11;
+            $prot->date_tag = "<span class='small' style='color: red; font-weight: bold'>$search->date 
+                                <span class=\"badge badge-danger badge-counter\">Add New</span></span>";
+            $prot->date = $search->date;
+            $prot->message = "NO monitoring plug on at search date";
+            $prot->message_tag = "<span class='small' style='color: red; font-weight: bold'>NO monitoring plug on at search date $prot->code</span>";
+            $prot->button = '
+           <div class="d-inline-block">
+           <button data-status = "'.$prot->code.'" type="submit" id="create" title="Create New Entry" data-id="' . $container->id . '"
+                   class="btn btn-success btn-sm btn-circle"><i
+                   class="fa fa-plus "></i>
+           </button>
+                       <input name="_method" type="hidden" value="PUT">
+           <input type="hidden" name="row_monitoring_date" value="'.Carbon::parse($search->date)->toDateString().'">
+           </div>';
+            $prot->monitoring = $monitoring;
+        }
+
+        /** NO monitoring plug on before search date*/
+        elseif($container->plugging_category=='monitoring' && $monitoring==null && $container->plug_on_date == $prot->prev_date &&$container->plug_on_date!=$search->date){
+            $prot->code = 12;
+            $prot->date_tag = "<span class='small' style='color: orange; font-weight: bold'>$search->date 
+                                <span class=\"badge badge-danger badge-counter\">Add New</span></span>";
+            $prot->date = $search->date;
+            $prot->message = "NO monitoring plug on before search date";
+            $prot->message_tag = "<span class='small' style='color: orange; font-weight: bold'>NO monitoring plug on before search date $prot->code</span>";
+            $prot->button = '
+           <div class="d-inline-block">
+           <button data-status = "'.$prot->code.'" type="submit" id="create" title="Create New Entry" data-id="' . $container->id . '"
+                   class="btn btn-success btn-sm btn-circle"><i
+                   class="fa fa-plus "></i>
+           </button>
+                       <input name="_method" type="hidden" value="PUT">
+           <input type="hidden" name="row_monitoring_date" value="'.Carbon::parse($search->date)->toDateString().'">
+           </div>';
+            $prot->monitoring = $monitoring;
+        }
+
+        /** With monitoring plug on at search date */
+        elseif($container->plugging_category=='monitoring' && $monitoring!=null && $container->plug_on_date == $monitoring->date && $container->plug_on_date==$search->date ){
+            $prot->code = 13;
+            $prot->date_tag = "<span class='small' style='color: green; font-weight: bold'>$search->date</span>";
+            $prot->date = $search->date;
+            $prot->message = "With monitoring plug on at search date";
+            $prot->message_tag = "<span class='small' style='color: green; font-weight: bold'>With monitoring plug on at search date $prot->code</span>";
+            $prot->button = '
+            <div class="d-inline-block">
+            <button data-status = "'.$prot->code.'" type="submit" id="quick_save" data-id="' . $container->id . '"
+                    data-monitoring-id=""
+                    class="btn btn-success btn-sm btn-circle"><i
+                    class="fa fa-save " title="Quick Save"></i>
+            </button>
+            <input name="_method" type="hidden" value="PUT">
+            <input type="hidden" name="row_monitoring_date" value="'.$search->date.'">
+            </div>
+            ';
+            $prot->monitoring = $monitoring;
+
+        }
+
+        /** With monitoring monitoring before search date */
+        elseif($container->plugging_category=='monitoring' && $monitoring!=null && $monitoring->date<$search->date ){
+            $prot->code = 14;
+            $prot->date_tag = "<span class='small' style='color: yellow; font-weight: bold'>$search->date
+<span class=\"badge badge-danger badge-counter\">Add New</span></span>";
+            $prot->date = $search->date;
+            $prot->message = "With monitoring monitoring before search date";
+            $prot->message_tag = "<span class='small' style='color: yellow; font-weight: bold'>With monitoring monitoring before search date $prot->code</span>";
+            $prot->button = '
+           <div class="d-inline-block">
+           <button data-status = "'.$prot->code.'" type="submit" id="create" title="Create New Entry" data-id="' . $container->id . '"
+                   class="btn btn-success btn-sm btn-circle"><i
+                   class="fa fa-plus "></i>
+           </button>
+                       <input name="_method" type="hidden" value="PUT">
+           <input type="hidden" name="row_monitoring_date" value="'.Carbon::parse($search->date)->toDateString().'">
+           </div>';
+            $prot->monitoring = $monitoring;
+        }
+
+        /** With monitoring monitoring is on search date */
+        elseif($container->plugging_category=='monitoring' && $monitoring!=null && $monitoring->date==$search->date ){
+            $prot->code = 15;
+            $prot->date_tag = "<span class='small' style='color: green; font-weight: bold'>$search->date</span>";
+            $prot->date = $search->date;
+            $prot->message = "With monitoring monitoring is on search date";
+            $prot->message_tag = "<span class='small' style='color: green; font-weight: bold'>With monitoring monitoring is on search date $prot->code</span>";
+            $prot->button = '
+            <div class="d-inline-block">
+            <button data-status = "'.$prot->code.'" type="submit" id="quick_save" data-id="' . $container->id . '"
+                    data-monitoring-id=""
+                    class="btn btn-success btn-sm btn-circle"><i
+                    class="fa fa-save " title="Quick Save"></i>
+            </button>
+            <input name="_method" type="hidden" value="PUT">
+            <input type="hidden" name="row_monitoring_date" value="'.$search->date.'">
+            </div>
+            ';
+            $prot->monitoring = $monitoring;
+        }
+
+        //todo - plug only
+        elseif($container->monitoring_count == 0 &&$container->plugging_category=='plug_on_and_off_only'){
+            $prot->code = 7;
+            //$prot->date_tag = "<span class='small' style='color: black; font-weight: bold'>$container->plug_on_date</span>";
+            $prot->date_tag = "<span class='small' style='color: black; font-weight: bold'>$search->date</span>";
+            //$prot->date = $container->plug_on_date;
+            $prot->date = $search->date;
+            $prot->message = "Plug On and Off Only";
+            $prot->message_tag = "<span class='small' style='color: black; font-weight: bold'>Plug On and Off only $prot->code</span>";
+            $prot->button = '
+            <div class="d-inline-block">
+            <button data-status = "'.$prot->code.'" type="submit" id="quick_save" data-id="' . $container->id . '"
+                    data-monitoring-id=""
+                    class="btn btn-success btn-sm btn-circle"><i
+                    class="fa fa-save " title="Quick Save"></i>
+            </button>
+            <input name="_method" type="hidden" value="PUT">
+            <input type="hidden" name="row_monitoring_date" value="">
+            </div>
+            ';
+            $prot->monitoring = null;
+        }
+
+
+
+
+        return $prot;
+    }
+}
+

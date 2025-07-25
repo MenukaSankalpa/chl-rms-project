@@ -1,0 +1,107 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Container;
+use App\TempContainer;
+use App\Upload;
+use App\Vessel;
+use App\Voyage;
+use Illuminate\Http\Request;
+use mysql_xdevapi\Collection;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use Yajra\DataTables\DataTables;
+use DB;
+
+class LoadingVesselController extends Controller
+{
+    //
+    public function __construct()
+    {
+        $this->middleware('auth:web,admin');
+    }
+
+    public function index()
+    {
+        $vessels = Vessel::all();
+
+        return view('loading_vessel_upload.index', compact('vessels'));
+    }
+
+    public function show(Upload $file)
+    {
+        $vessels = Vessel::all();
+        $data = json_decode($file->data);
+        return view('loading_vessel_upload.create', compact('file', 'vessels', 'data'));
+    }
+
+    public function save(Upload $file)
+    {
+        $message = ['warning' => [], 'error' => [], 'success' => []];
+        $data = json_decode($file->data);
+        $ex_vessel = (Vessel::find($data->vessel_id) != null) ? Vessel::find($data->vessel_id)->name : '';
+        $ex_voyage = (Voyage::find($data->voyage_id) != null) ? Voyage::find($data->voyage_id)->code : '';
+
+        $temp_containers = CommonQueryController::getLatestContainerList($file->id);
+        foreach ($temp_containers->get() as $temp_container) {
+            if (!isset($temp_container->container_number)) {
+                $message['error'][] = "Container $temp_container->number Not Found data not entered";
+            } elseif (isset($temp_container->plug_off_date) && $temp_container->plug_off_date != null) {
+                $message['error'][] = "Container $temp_container->container_number Already Plugged off";
+            } elseif (isset($temp_container->ex_on_career_vessel) && $temp_container->ex_on_career_vessel != null) {
+                $message['warning'][] = "Container $temp_container->container_number Loading Vessel is over written";
+            } elseif (isset($temp_container->ex_on_career_voyage) && $temp_container->ex_on_career_voyage != null) {
+                $message['warning'][] = "Container $temp_container->container_number Loading Voyage is over written";
+            } else {
+                $container = Container::find($temp_container->id);
+                $container->ex_on_career_vessel = $data->vessel_id;
+                $container->ex_on_career_voyage = $data->voyage_id;
+                $container->update();
+                $message['success'][] = "Container $temp_container->container_number Successfully Updated to $ex_vessel $ex_voyage";
+            }
+
+        }
+
+        return redirect(url('/loading_vessel_upload'))->with('success', 'Loading vessel Updated')
+            ->with('message', $message);
+
+    }
+
+    /**
+     * @param DataTables $datatables
+     * @return mixed
+     * @throws \Exception
+     */
+    public function data(DataTables $datatables)
+    {
+        $request = $datatables->getRequest();
+        $file_id = $request->extra_search['file'];
+        $containers = CommonQueryController::getLatestContainerList($file_id);
+
+        //errors and warnings count
+        $message = ['error' => 0, 'warning' => 0, 'success' => 0];
+        foreach ($containers->get() as $container) {
+            if (!isset($container->container_number)) {
+                $message['error']++;
+            } elseif (isset($container->plug_off_date) && $container->plug_off_date != null) {
+                $message['error']++;
+            } elseif (isset($container->ex_on_career_vessel) && $container->ex_on_career_vessel != null) {
+                $message['warning']++;
+            } elseif (isset($container->ex_on_career_voyage) && $container->ex_on_career_voyage != null) {
+                $message['warning']++;
+            } else {
+                $message['success']++;
+            }
+        }
+
+        return $datatables->of($containers)
+            ->with('message', $message)
+            ->addColumn('status', function ($container) {
+                return view('loading_vessel_upload.status', compact('container'));
+            })
+            ->rawColumns(['code', 'status', 'action'])
+            ->make(true);
+
+    }
+}
+
